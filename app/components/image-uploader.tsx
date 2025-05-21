@@ -85,7 +85,16 @@ export default function ImageUploader() {
       const formData = new FormData()
       formData.append("image", image)
 
-      const result = await analyzeImage(formData)
+
+      const res = await fetch('http://127.0.0.1:5000/search',{
+        method:'POST',
+        body: formData
+      })
+
+      const result = res.json();
+      console.log("Response", result);
+
+      // const result = await analyzeImage(formData)
       setResults(result)
     } catch (err) {
       setError("Failed to analyze image. Please try again.")
