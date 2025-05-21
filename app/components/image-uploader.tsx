@@ -86,7 +86,16 @@ export default function ImageUploader() {
       const formData = new FormData()
       formData.append("image", image)
 
-      const result = await analyzeImage(formData)
+
+      const res = await fetch('http://127.0.0.1:5000/search',{
+        method:'POST',
+        body: formData
+      })
+
+      const result = res.json();
+      console.log("Response", result);
+
+      // const result = await analyzeImage(formData)
       setResults(result)
     } catch (err) {
       setError("Failed to analyze image. Please try again.")
@@ -150,7 +159,7 @@ export default function ImageUploader() {
 
       {error && <div className="p-4 bg-red-50 text-red-700 rounded-lg text-center">{error}</div>}
 
-      {results && (
+      {/* {results && (
         <Card className="p-6 mt-8">
           <h3 className="text-xl font-semibold mb-4">AI Analysis Results</h3>
 
@@ -189,7 +198,7 @@ export default function ImageUploader() {
             </div>
           </div>
         </Card>
-      )}
+      )} */}
     </div>
   )
 }
