@@ -1,6 +1,6 @@
 import { Suspense } from "react"
 import ImageUploader from "@/app/components/image-uploader"
-import { UploadIcon as FileUploadIcon } from "lucide-react"
+import { Sparkles } from "lucide-react"
 
 export default function Home() {
   return (
@@ -16,8 +16,8 @@ export default function Home() {
         <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
           <div className="p-8">
             <div className="flex items-center justify-center mb-6">
-              <FileUploadIcon className="h-8 w-8 text-gray-600 mr-2" />
-              <h2 className="text-2xl font-semibold text-gray-800">Upload Product Image</h2>
+              <Sparkles className="h-8 w-8 text-gray-600 mr-2" />
+              <h2 className="text-2xl font-semibold text-gray-800">AI Product Analyser</h2>
             </div>
 
             <Suspense fallback={<div className="text-center p-12">Loading uploader...</div>}>
