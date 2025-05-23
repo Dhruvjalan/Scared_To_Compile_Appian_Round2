@@ -17,7 +17,7 @@ export default function ImageUploader() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [results, setResults] = useState<any[] | null>(null)
-  const [openImagesDropdown, setOpenImagesDropdown] = useState<{ [key: string]: boolean }>(true)
+  const [openImagesDropdown, setOpenImagesDropdown] = useState<{ [key: string]: boolean }>({})
   const [openDetailsDropdown, setOpenDetailsDropdown] = useState<{ [key: string]: boolean }>({})
   const [selectedKeyword, setSelectedKeyword] = useState<string[]>([])
   const [aiMessage, setAiMessage] = useState<string>("")
