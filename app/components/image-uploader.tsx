@@ -22,6 +22,8 @@ export default function ImageUploader() {
   const [selectedKeyword, setSelectedKeyword] = useState<string[]>([])
   const [aiMessage, setAiMessage] = useState<string>("")
   const [humanMessage, setHumanMessage] = useState<string>("")
+  const [analyzeTrigger, setAnalyzeTrigger] = useState(false)
+
 
   const handleDragOver = (e: React.DragEvent) => {
       e.preventDefault()
@@ -83,32 +85,40 @@ export default function ImageUploader() {
     setResults(null)
   }
 
-  const handleAnalyzeImage = async () => {
+  const handleAnalyzeImage = () => {
     if (!image) return
-
-    setLoading(true)
-    setError(null)
-
-    try {
-      const formData = new FormData()
-      formData.append("image", image)
-
-      const res = await fetch('http://127.0.0.1:5000/search',{
-        method:'POST',
-        body: formData
-      })
-
-      const result = res.json();
-      console.log("Response", result);
-      setResults(result)
-      
-    } catch (err) {
-      setError("Failed to analyze image. Please try again.")
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
+    setAnalyzeTrigger(true)
   }
+
+  useEffect(() => {
+    if (!analyzeTrigger || !image) return
+
+    const fetchResults = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const formData = new FormData()
+        formData.append("image", image)
+
+        const res = await fetch('http://127.0.0.1:5000/search', {
+          method: 'POST',
+          body: formData
+        })
+
+        const result = await res.json()
+        console.log("Response", result)
+        setResults(result)
+      } catch (err) {
+        setError("Failed to analyze image. Please try again.")
+        console.error(err)
+      } finally {
+        setLoading(false)
+        setAnalyzeTrigger(false)
+      }
+    }
+
+    fetchResults()
+  }, [analyzeTrigger, image])
 
   return (
     <div className="space-y-6">
