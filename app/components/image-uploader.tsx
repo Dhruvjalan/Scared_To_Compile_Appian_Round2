@@ -17,7 +17,7 @@ export default function ImageUploader() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [results, setResults] = useState<any[] | null>(null)
-  const [openImagesDropdown, setOpenImagesDropdown] = useState<{ [key: string]: boolean }>(true)
+  const [openImagesDropdown, setOpenImagesDropdown] = useState<{ [key: string]: boolean }>({})
   const [openDetailsDropdown, setOpenDetailsDropdown] = useState<{ [key: string]: boolean }>({})
   const [selectedKeyword, setSelectedKeyword] = useState<string[]>([])
   const [aiMessage, setAiMessage] = useState<string>("")
@@ -221,7 +221,7 @@ export default function ImageUploader() {
                   </div>
                 </div>
 
-                {openImagesDropdown[result.landingPageUrl] && (
+                {openImagesDropdown[result.id] && (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                     {result.images_Urls.length ? <ImageCarousel images={result.images_Urls} />: <p className="p-4 text-gray-500 text-sm">No images available</p>}
                   </div>
@@ -236,12 +236,7 @@ export default function ImageUploader() {
                     )}
                   </p>
                 </div>
-
-                  {/* <div>
-                    <h4 className="font-medium text-gray-700">Description</h4>
-                    <div className="text-gray-900 text-sm" dangerouslySetInnerHTML={{__html: result.description}}/>
-                  </div> */}
-                
+            
                 
                 {openDetailsDropdown[result.id] ? (
                   <div>
