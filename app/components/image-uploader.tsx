@@ -63,71 +63,52 @@ export default function ImageUploader() {
         setAiMessage("Got it. Let me look for similar styles for you.")
       }  
 
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setPreview(reader.result as string)
-      }
-      reader.readAsDataURL(file)
+    // Create preview
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setPreview(reader.result as string)
     }
-  
-    const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files && e.target.files[0]) {
-        handleFileChange(e.target.files[0])
-      }
-    }
-  
-    const handleRemoveImage = () => {
-      setImage(null)
-      setPreview(null)
-      setResults(null)
-    }
-  
-    const handleNegFeedback = ()=>{
-      console.log('neg');
-      setError("Feedback taken.")
-    }
-    const handleAnalyzeImage = async () => {
-      if (!image) return
-  
-      setLoading(true)
-      setError(null)
-  
-      try {
-        const formData = new FormData()
-        formData.append("image", image)
-  
-  
-        // const res = await fetch('http://127.0.0.1:5000/search',{
-        //   method:'POST',
-        //   body: formData
-        // })
-  
-        // const result = res.json();
-        // console.log("Response", result);
-  
-        const result = await analyzeImage(formData)
-        setResults(result)
-      } catch (err) {
-        setError("Failed to analyze image. Please try again.")
-        console.error(err)
-      } finally {
-        setLoading(false)
-      }
-    
-
-    }
-
-    useEffect(() => {
-  if (!image) {
-    setPreview(null)
-    return
+    reader.readAsDataURL(file)
   }
 
-  const objectUrl = URL.createObjectURL(image)
-  setPreview(objectUrl)
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFileChange(e.target.files[0])
+    }
+  }
 
-  return () => URL.revokeObjectURL(objectUrl)
-}, [image])
+  const handleRemoveImage = () => {
+    setImage(null)
+    setPreview(null)
+    setResults(null)
+  }
+
+  const handleAnalyzeImage = async () => {
+    if (!image) return
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const formData = new FormData()
+      formData.append("image", image)
+
+      const res = await fetch('http://127.0.0.1:5000/search',{
+        method:'POST',
+        body: formData
+      })
+
+      const result = res.json();
+      console.log("Response", result);
+      setResults(result)
+      
+    } catch (err) {
+      setError("Failed to analyze image. Please try again.")
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
