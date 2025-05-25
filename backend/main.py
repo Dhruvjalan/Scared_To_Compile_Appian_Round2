@@ -21,10 +21,10 @@ CORS(app)
 
 
 # Pinecone init
-# pinecone_api_key_old =  os.getenv('pinecone_api_key_old')
-# index_name = "fashion-products-clip"
-# pc = pinecone.Pinecone(api_key=pinecone_api_key)
-# index = pc.Index(index_name)
+pinecone_api_key =  "pcsk_3uREgt_4HQhSbEi9hZjRkoURzXJQxG3MLagkb8u18hGtJUYkhFDS3yGTi41NUMwxFt2Ufy"
+index_name = "fashion-products-clip"
+pc = pinecone.Pinecone(api_key=pinecone_api_key)
+index = pc.Index(index_name)
 
 # CLIP init
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -33,8 +33,8 @@ processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
 
 ## LLM CONFIG
-PINECONE_API_KEY = os.getenv('PINECONE_API_KEY')
-HF_API_KEY = os.getenv('HF_API_KEY')
+HF_API_KEY = "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"
+PINECONE_API_KEY = "pcsk_3uREgt_4HQhSbEi9hZjRkoURzXJQxG3MLagkb8u18hGtJUYkhFDS3yGTi41NUMwxFt2Ufy"
 INDEX_NAME = "fashion-products-clip"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -98,7 +98,6 @@ def search_by_image(image_source, top_k=5):
     query_embedding = get_image_embedding_from_path_or_url(image_source)
     results = search_pinecone(query_embedding, top_k)
     return results
-
 
 
 # === /search handles llm directly. ===
@@ -369,7 +368,6 @@ def search_image():
                 continue
     
     print("interested data", interested_data)
-    return jsonify(interested_data)
 
 '''
 Required in the llm model for easy data extraction.

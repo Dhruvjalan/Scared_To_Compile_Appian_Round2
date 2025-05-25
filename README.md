@@ -103,6 +103,10 @@ Once the server (backend) as well as the front-end is running, you can finally u
 3. The AI Powered Chatbot will give you the desired results. You can then also ask follow-up questions if you like.
 
 
+## Citation
 
+Dataset from:
+
+Param Aggarwal. (2019). Fashion Product Images Dataset [Data set]. Kaggle. https://doi.org/10.34740/KAGGLE/DS/139630
 
 

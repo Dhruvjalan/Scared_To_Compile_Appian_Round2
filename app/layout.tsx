@@ -19,6 +19,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="icon" href="/favicon.ico" />
+      </head>
       <body className={inter.className + "bg-background"}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
           <main className="min-h-screen w-full bg-background text-foreground transition-colors">
