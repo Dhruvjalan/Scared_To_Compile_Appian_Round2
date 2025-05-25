@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "AI Product Analyzer",
   description: "Upload product images and get AI-powered analysis for your e-commerce store",
-    generator: 'v0.dev'
+  generator: "v0.dev",
 }
 
 export default function RootLayout({
@@ -18,10 +18,12 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          {children}
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className + "bg-background"}>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+          <main className="min-h-screen w-full bg-background text-foreground transition-colors">
+            {children}
+          </main>
         </ThemeProvider>
       </body>
     </html>

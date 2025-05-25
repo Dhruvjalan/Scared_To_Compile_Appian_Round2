@@ -68,3 +68,41 @@ While participants are free to use any tools/technologies [7, 8], here are some 
 *   **Prototype**: Develop in the language of the participant's choice [1].
 *   **Demo Video**: Include a demo video demonstrating how the solution works [1].
 *   **Codebase**: Provide a Github link for the codebase [1].
+
+## To run:
+
+1. ../> <pre> ``` git clone git@github.com:Dhruvjalan/Scared_To_Compile_Appian_Round2.git ``` </pre>
+
+### I. Backend
+
+1. ..\Appian_Round2\backend> <pre> ```python -m venv venv``` </pre>
+
+2. ..\Appian_Round2\backend> <pre> ```venv\Scripts\activate``` </pre>
+
+3. ..\Appian_Round2\backend> <pre> ```pip install flask flask-cors pillow torch pinecone requests transformers pyreadline3``` </pre>
+
+4. (venv)..\Appian_Round2\backend> <pre> ```python main.py``` </pre>
+
+5. Click on the link displayed afterwards in the terminal, or open localhost:5000 on your browser
+
+### II. Frontend
+
+1. ..\Appian_Round2> <pre> ```npm install``` </pre>
+
+2. ..\Appian_Round2> <pre> ```npm run dev``` </pre>
+
+3. Click on the link displayed afterwards in the terminal, or open localhost:3000 on your browser
+
+### III. Explore the app
+Once the server (backend) as well as the front-end is running, you can finally use the app. 
+
+1. Drag-and-Drop any image directly from your browser, or add an attachment of any `.jpg`,`.png` or `.webp` file from your system.
+
+2. Add any question about the image in the searchbar. (You can search only by the searchbar if you don't have any image reference)
+
+3. The AI Powered Chatbot will give you the desired results. You can then also ask follow-up questions if you like.
+
+
+
+
+
