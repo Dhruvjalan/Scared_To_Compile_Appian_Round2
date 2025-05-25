@@ -281,7 +281,7 @@ export default function ImageUploader() {
           </div>
         )}
         <div className="flex flex-row">
-        <SearchBar className='w-max'searchQuery={humanMessage} setSearchQuery={setHumanMessage} />
+        <SearchBar searchQuery={humanMessage} setSearchQuery={setHumanMessage} />
         <Button className="mx-1" onClick={handleAnalyzeImage}><Search/></Button><Button className="mx-1"><Paperclip /></Button>
         </div>
       </div>
