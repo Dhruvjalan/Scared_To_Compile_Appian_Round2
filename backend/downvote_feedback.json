@@ -1,0 +1,92 @@
+[
+  {
+    "timestamp": 1749467010.0750706,
+    "product_id": "1",
+    "user_query": "Find similar in red color",
+    "search_type": "text",
+    "feedback_type": "downvote",
+    "reason": "not_relevant",
+    "user_session": "test-session-123",
+    "action": "model_learning_applied"
+  },
+  {
+    "timestamp": 1749467258.253612,
+    "product_id": "1",
+    "user_query": "Find similar in red color",
+    "search_type": "text",
+    "feedback_type": "downvote",
+    "reason": "not_relevant",
+    "user_session": "test-session-123",
+    "action": "model_learning_applied"
+  },
+  {
+    "timestamp": 1749468383.4679651,
+    "product_id": "1",
+    "user_query": "similar in red color",
+    "search_type": "text",
+    "feedback_type": "downvote",
+    "reason": "not_relevant",
+    "user_session": "test-session-123",
+    "action": "model_learning_applied"
+  },
+  {
+    "timestamp": 1749468787.3736603,
+    "product_id": "1",
+    "user_query": "similar in red color",
+    "search_type": "text",
+    "feedback_type": "downvote",
+    "reason": "not_relevant",
+    "user_session": "test-session-123",
+    "action": "model_learning_applied"
+  },
+  {
+    "timestamp": 1749499187.355554,
+    "product_id": "1",
+    "user_query": " Hello, hello.",
+    "search_type": "text",
+    "feedback_type": "downvote",
+    "reason": "not_relevant",
+    "user_session": "test-session-123",
+    "action": "model_learning_applied"
+  },
+  {
+    "timestamp": 1749501866.716515,
+    "product_id": "1",
+    "user_query": " Search Similar dresses",
+    "search_type": "text",
+    "feedback_type": "downvote",
+    "reason": "not_relevant",
+    "user_session": "test-session-123",
+    "action": "model_learning_applied"
+  },
+  {
+    "timestamp": 1749537288.272084,
+    "product_id": "0",
+    "user_query": "",
+    "search_type": "text",
+    "feedback_type": "downvote",
+    "reason": "not_relevant",
+    "user_session": "test-session-123",
+    "action": "model_learning_applied"
+  },
+  {
+    "timestamp": 1749537522.2352214,
+    "product_id": "1",
+    "user_query": " Give me a blue shoes",
+    "search_type": "text",
+    "feedback_type": "downvote",
+    "reason": "not_relevant",
+    "user_session": "test-session-123",
+    "action": "model_learning_applied"
+  },
+  {
+    "timestamp": 1749538455.5817316,
+    "product_id": "1",
+    "user_query": " Give me similar blue jeans.",
+    "search_type": "text",
+    "feedback_type": "downvote",
+    "reason": "not_relevant",
+    "user_session": "test-session-123",
+    "action": "model_learning_applied"
+  }
+]

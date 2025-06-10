@@ -1,0 +1,641 @@
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from PIL import Image
+from io import BytesIO
+import os
+import json
+import torch
+from typing import Optional, Dict, List
+from pydantic import BaseModel, ValidationError
+from transformers import CLIPProcessor, CLIPModel
+import pinecone
+import json_repair
+import requests
+from feedback import FeedbackLearningSystem 
+import time
+
+from flask import Flask, request, jsonify
+from flask_cors import CORS, cross_origin
+from PIL import Image
+from io import BytesIO
+import os
+import json
+import torch
+from typing import Optional, Dict, List
+from pydantic import BaseModel, ValidationError
+from transformers import CLIPProcessor, CLIPModel
+import pinecone
+import json_repair
+import requests
+import sounddevice as sd
+import numpy as np
+import threading
+import queue
+import sys
+import whisper
+import tempfile
+from scipy.io.wavfile import write
+import os
+
+from dotenv import load_dotenv
+load_dotenv()
+
+# === Setup ===
+app = Flask(__name__)
+CORS(app, origins=["http://localhost:3000"], supports_credentials=True)
+
+
+# Pinecone init
+pinecone_api_key =  "pcsk_3uREgt_4HQhSbEi9hZjRkoURzXJQxG3MLagkb8u18hGtJUYkhFDS3yGTi41NUMwxFt2Ufy"
+index_name = "fashion-products-clip"
+pc = pinecone.Pinecone(api_key=pinecone_api_key)
+index = pc.Index(index_name)
+
+# CLIP init
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
+processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+
+
+## LLM CONFIG
+HF_API_KEY = "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"
+PINECONE_API_KEY = "pcsk_3uREgt_4HQhSbEi9hZjRkoURzXJQxG3MLagkb8u18hGtJUYkhFDS3yGTi41NUMwxFt2Ufy"
+INDEX_NAME = "fashion-products-clip"
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+# Initialize models and services
+pc = pinecone.Pinecone(api_key=PINECONE_API_KEY)
+processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+base_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(DEVICE)
+
+if torch.cuda.device_count() > 1:
+    base_model = torch.nn.DataParallel(base_model)
+
+# Hugging Face Endpoints (Free models)
+PARSE_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"
+RESPONSE_MODEL = "HuggingFaceH4/zephyr-7b-beta"
+
+
+def get_image_embedding_from_path_or_url(image_source):
+    if image_source.startswith("http://") or image_source.startswith("https://"):
+        response = requests.get(image_source)
+        image = Image.open(BytesIO(response.content)).convert("RGB")
+    else:
+        image = Image.open(image_source).convert("RGB")
+
+    inputs = processor(images=[image], return_tensors="pt", padding=True)
+    pixel_values = inputs["pixel_values"].to(device)
+
+    with torch.no_grad():
+        if device == "cuda":
+            with torch.amp.autocast(device_type='cuda'):
+                outputs = model.get_image_features(pixel_values=pixel_values)
+        else:
+            outputs = model.get_image_features(pixel_values=pixel_values)
+
+    embedding = outputs / (outputs.norm(p=2, dim=-1, keepdim=True) + 1e-8)
+    return embedding.cpu().numpy()[0].tolist()
+
+
+def get_image_embedding(image: Image.Image):
+    inputs = processor(images=[image], return_tensors="pt", padding=True)
+    pixel_values = inputs["pixel_values"].to(device)
+
+    with torch.no_grad():
+        if device == "cuda":
+            with torch.amp.autocast(device_type='cuda'):
+                outputs = model.get_image_features(pixel_values=pixel_values)
+        else:
+            outputs = model.get_image_features(pixel_values=pixel_values)
+
+    embedding = outputs / (outputs.norm(p=2, dim=-1, keepdim=True) + 1e-8)
+    return embedding.cpu().numpy()[0].tolist()
+
+def search_pinecone(query_embedding, top_k=5):
+    query_response = index.query(
+        vector=query_embedding,
+        top_k=top_k,
+        include_metadata=True
+    )
+    return query_response
+
+def search_by_image(image_source, top_k=5):
+    query_embedding = get_image_embedding_from_path_or_url(image_source)
+    results = search_pinecone(query_embedding, top_k)
+    return results
+
+
+from flask import Flask, request, jsonify
+import whisper
+import tempfile
+import os
+from pydub import AudioSegment
+from pydub.utils import which
+
+AudioSegment.converter = which("ffmpeg")
+
+app = Flask(__name__)
+model = whisper.load_model("base")
+
+def convert_webm_to_wav(webm_path, wav_path):
+    audio = AudioSegment.from_file(webm_path, format="webm")
+    if len(audio) == 0:
+        raise ValueError("Audio file is silent or empty")
+    audio.export(wav_path, format="wav")
+
+@app.route('/transcribe2', methods=['POST','OPTIONS'])
+@cross_origin(
+    origins=["http://localhost:3000"],
+    supports_credentials=True,
+    allow_headers=["Content-Type"],
+    methods=["POST", "OPTIONS"]
+)
+def transcribe():
+    print("Received request")
+    return jsonify({"transcription": "sample text"})
+@app.route('/transcribe', methods=['POST','OPTIONS'])
+@cross_origin(
+    origins=["http://localhost:3000"],
+    supports_credentials=True,
+    allow_headers=["Content-Type"],
+    methods=["POST", "OPTIONS"]
+)
+def transcribe_audio():
+    print("\n\n===In transcribe_audio.===\n\n ")
+    if 'audio' not in request.files:
+        return jsonify({'error': 'No audio file provided'}), 400
+
+    audio_file = request.files['audio']
+
+    with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as temp_webm:
+        audio_file.save(temp_webm)
+        temp_webm_path = temp_webm.name
+
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
+        temp_wav_path = temp_wav.name
+
+    try:
+        convert_webm_to_wav(temp_webm_path, temp_wav_path)
+        result = model.transcribe(temp_wav_path)
+        print("\nTranscribed Audio:\n",result['text'])
+
+        return jsonify({'transcription': result['text']}), 200
+    except Exception as e:
+        print("Conversion or transcription failed:", e)
+        return jsonify({'error': 'Conversion or transcription failed', 'details': str(e)}), 500
+    finally:
+        if os.path.exists(temp_webm_path):
+            os.remove(temp_webm_path)
+        if os.path.exists(temp_wav_path):
+            os.remove(temp_wav_path)
+
+
+
+
+
+
+
+@app.route("/dummysearch", methods=["POST", "OPTIONS"])
+@cross_origin(
+    origins=["http://localhost:3000"],
+    supports_credentials=True,
+    allow_headers=["Content-Type"],
+    methods=["POST", "OPTIONS"]
+)
+def search_dummy():
+    print("In dummy")
+    return jsonify({'ai_text':'Here Are Some Results','results': [{'id': 7133, 'price': 999, 'discountedPrice': 999, 'productDisplayName': 'Urban Yoga Men Bottom Grey Yoga Pants', 'landingPageUrl': 'https://myntra.com/Track-Pants/Urban-Yoga/Urban-Yoga-Men-Bottom-Grey-Yoga-Pants/7133/buy', 'brand': 'Urban Yoga', 'gender': 'Men', 'keywords': ['casual', 'apparel', 'bottomwear', 'grey', 'men'], 'Morelikethis': ['https://myntra.com/track-pants?f=brand:Urban Yoga::gender:men', 'https://myntra.com/track-pants?f=colour:Grey::gender:men', 'https://myntra.com/track-pants?f=gender:men'], 'images_Urls': ['http://assets.myntassets.com/v1/images/style/properties/1adabb7afa1895e26187de51dc97f50d_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/1adabb7afa1895e26187de51dc97f50d_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/c17b3431968ef6fb5e9e54f30b1c5a7f_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/b8961d89fcd8ee0e702b88eea0649c31_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/4c587da1209bdade8d2536fd1163b990_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/cf2619813eebb2f8ae90d74ef89ec96e_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/b6156e268b680a253ea1051416d1c0b2_images.jpg'], 'colors': ['Grey'], 'description': '<p style="text-align: justify;"><strong>Composition</strong><br />Grey capris made of 95% cotton and 5% elastane, with flattened seams, spandex for more stretch, reinforced tear points, printed main lable, soft and broad elasticated waist with a drawcord, side pockets and embroidered brand logo below left pocket<br /><br /><strong>Fit</strong><br />Comfort<br /><strong><br />Wash care</strong></p>\n<ul>\n<li>Wash dark colours separately in warm water not more than 40 degrees</li>\n<li>Use mild detergent</li>\n<li>Do not bleach</li>\n<li>Do not wring</li>\n<li>Flat dry in shade</li>\n</ul>\n<p style="text-align: justify;">Enjoy those mind-calming sessions of yoga in style and comfort in this urban yoga capri. Made of pure, sweat absorbant and stretchable cotton, this 3/4th pant is stitched with flat seams and a printed label to prevent irritation, allowing you to concentrate on your yoga activity. With reinforced tear points, be assured that this capri will stay with you for years, while the grippy garment ensures it doesn\'t slip and cause discomfort when you exercise. The soft waistband with a drawcord allows you to customise the fit. Team this with urban yoga t-shirts and tops for that ultimate in comfort.<br /><em><br />Model statistics</em><br />The model wears trousers of length 43"<br />Height: 6\'2"; Waist: 32"; Hips: 35"</p>'}, {'id': 3911, 'price': 799, 'discountedPrice': 799, 'productDisplayName': 'Urban Yoga Women Yoga Navy Capri', 'landingPageUrl': 'https://myntra.com/Capris/Urban-Yoga/Urban-Yoga-Women-Yoga-Navy-Capri/3911/buy', 'brand': 'Urban Yoga', 'gender': 'Women', 'keywords': ['casual wear,sale', 'casual', 'apparel', 'bottomwear', 'navy blue', 'women'], 'Morelikethis': ['https://myntra.com/capris?f=brand:Urban Yoga::gender:women', 'https://myntra.com/capris?f=colour:Navy Blue::gender:women', 'https://myntra.com/capris?f=gender:women'], 'images_Urls': ['http://assets.myntassets.com/v1/images/style/properties/500b8d5037abcda993e65d6d9e9be227_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/500b8d5037abcda993e65d6d9e9be227_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/a7a07d5b17515ad4dd89748da8a09276_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/a13062c45cdd3a40dbae4651c6a3e2a1_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/7b06371250857945be5ed6888455904e_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/59b9af912b664ebb7be5cee308da6c98_images.jpg'], 'colors': ['Navy Blue'], 'description': '<p style="text-align: justify;"><strong>Composition</strong><br />Stretchable easy-Fit capris in navy blue made of 100% cotton with spandex technology, drawstrings and soft elastic waistband and flattened seam<br /><strong><br />Fit </strong><br />Comfort<br /><strong><br />Wash care</strong></p><br/><ul><br/><li>Wash dark colours separately</li><br/><li>Use mild detergent in warm water (maximum 40 degrees)</li><br/><li>Do not wring or bleach</li><br/><li>Flat dry in shade</li><br/><li>Do not iron on print</li><br/></ul><br/><p style="text-align: justify;">This pair of navy blue capris from urban yoga is an essential garment in a woman\'s wardrobe. Specially designed with spandex for easy movement, the cotton fabric keeps you dry, comfortable and fresh. Any hard seam like zippers or buttons have been carefully avoided for a comfort feel. The stitch detailing in a contrast colour adds a stylish touch, while the drawstrings with urban yoga branding all over them can either be showed off as a bow or tucked in to alter between a funky and prim look. The brand tag has been printed and consciously not stitched so that nothing comes between you and comfort. You can couple this comfort fit capirs with stylish tops - a slim fit one for exercise regimes or a loose fit one for casual occasions.&nbsp;&nbsp; &nbsp;<br /><em><br />Model statistics</em><br />The model wears trousers, length of 36"<br />Height-5\'6&rdquo;, Waist - 32&rdquo;, Hips &ndash; 35&rdquo;</p>'}, {'id': 7126, 'price': 1099, 'discountedPrice': 1099, 'productDisplayName': 'Urban Yoga Women Bottom Grey Track Pant', 'landingPageUrl': 'https://myntra.com/Track-Pants/Urban-Yoga/Urban-Yoga-Women-Bottom-Grey-Track-Pant/7126/buy', 'brand': 'Urban Yoga', 'gender': 'Women', 'keywords': ['casual', 'apparel', 'bottomwear', 'grey', 'women'], 'Morelikethis': ['https://myntra.com/track-pants?f=brand:Urban Yoga::gender:women', 'https://myntra.com/track-pants?f=colour:Grey::gender:women', 'https://myntra.com/track-pants?f=gender:women'], 'images_Urls': ['http://assets.myntassets.com/v1/images/style/properties/00d454a9a2dbfe6539d2577953f7876c_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/00d454a9a2dbfe6539d2577953f7876c_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/b704b2822efb934edb35e565fda3d7fb_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/29728c09ff7b3fda1efd1612903dbb9c_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/80860577785ecc452462eb2b6b7814c2_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/12bda92de9acf88f970746b47f6130ff_images.jpg'], 'colors': ['Grey'], 'description': '<p style="text-align: justify;"><strong>Composition</strong><br />Grey yoga pants made of 100% cotton, with flattened seams, broad elasticated waist that can be folded, reinforced tear points and printed main label<br /><strong><br />Fit</strong><br />Comfort<br /><br /><strong>Wash care</strong></p>\n<ul>\n<li>Wash dark colours separately in warm water not more than 40 degrees</li>\n<li>Use mild detergent</li>\n<li>Do not bleach</li>\n<li>Do not wring</li>\n<li>Flat dry in shade</li>\n</ul>\n<p style="text-align: justify;">Enjoy those mind-calming sessions of yoga in style and comfort in this urban yoga pant. Made of pure, sweat absorbant cotton, this pant is stitched with flat seams and a printed label to prevent irritation, allowing you to concentrate on your yoga activity. The broad foldable waist fits snugly, offering ample support to your lower and mid back. With reinforced tear points, be assured that this pant will stay with you for years, while the grippy garment ensures it doesn\'t slip and cause discomfort when you exercise. Team this with urban yoga t-shirts and tops for that ultimate in comfort.<br /><em><br />Model statistics</em><br />The model wears trousers of length 39"<br />Heigh: 5\'7&rdquo;; Waist: 25&rdquo;; Hips: 35&rdquo;</p>'}, {'id': 9147, 'price': 2199, 'discountedPrice': 2199, 'productDisplayName': 'Lee Women SS Blue Jeans', 'landingPageUrl': 'https://myntra.com/Jeans/Lee/Lee-Women-SS-Blue-Jeans/9147/buy', 'brand': 'Lee', 'gender': 'Women', 'keywords': ['casual wear', 'casual', 'apparel', 'bottomwear', 'blue', 'women'], 'Morelikethis': ['https://myntra.com/jeans?f=brand:Lee::gender:women', 'https://myntra.com/jeans?f=colour:Blue::gender:women', 'https://myntra.com/jeans?f=gender:women'], 'images_Urls': ['http://assets.myntassets.com/v1/images/style/properties/3436e2460e37e081242548465f549ae1_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/3436e2460e37e081242548465f549ae1_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/ecf9ebc3999c69cfcb594c816418c7c7_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/d4498c1c472247d00585c912f3455040_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/95ada5ad1fb874784ce5238ec791da55_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/7f6f09723c9195104a5c3edbdd259252_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/16df1089191ca3d90a42e18e2d3705fc_images.jpg'], 'colors': ['Blue'], 'description': '<p><strong>Composition</strong><br /> <span style="font-style: normal  font-weight;">Blue super skinny jeans made of cotton blend fabric, has two insert pockets on the front side, two patch pockets on the back with thread detailing, brand patch appliqued on the waistband at the back and on the right back pocket, and metal zipper and button closure<br /> <br /> </span><span style="font-style: normal  font-weight;">Fit<br /> </span><span style="font-style: normal  font-weight;">Extra-low rise, super skinny fit<br /> <br /> </span><span style="font-style: normal  font-weight;">Wash care<br /> </span><span style="font-style: normal  font-weight;">Colour will bleed<br /> Machine wash separately in cold water at 30 C with mild detergent<br /> Turn garment inside out for washing and drying<br /> Do not bleach or wring<br /> Tumble dry or flat dry in shade<br /> Warm iron<br /> <br /> If you\'re a denim person, these blue super skinny jeans from lee will delight you. Extra low-rise, with a great slim fit, you might not want to take them off once you pull them on! Perfect companion for your t-shirts and sexy tops. <br /> <br /> </span><span style="font-style: italic  font-weight;">Model statistics<br /> </span><span style="font-style: normal  font-weight;">The model wears </span>jeans<span style="font-style: normal  font-weight;"> of length 38.5"<br /> Height: 5.9\'  Waist: 26.5"</span></p>'}, {'id': 27004, 'price': 1499, 'discountedPrice': 1499, 'productDisplayName': 'Jealous 21 Women Washed Light Blue Jeggings', 'landingPageUrl': 'https://myntra.com/Jeggings/Jealous-21/Jealous-21-Women-Washed-Light-Blue-Jeggings/27004/buy', 'brand': 'Jealous 21', 'gender': 'Women', 'keywords': ['casual', 'apparel', 'bottomwear', 'blue', 'women'], 'Morelikethis': ['https://myntra.com/jeggings?f=brand:Jealous 21::gender:women', 'https://myntra.com/jeggings?f=colour:Blue::gender:women', 'https://myntra.com/jeggings?f=gender:women'], 'images_Urls': ['http://assets.myntassets.com/v1/images/style/properties/d6f139265f4493b4a0ae5a1c68d76d29_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/d6f139265f4493b4a0ae5a1c68d76d29_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/68901176a4044becb2eef67bfa2c61c9_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/97b38a7a464e9a674e2b291ea40d217e_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/55445e2b55602d63616e82de9078f0af_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/38c1ab00e939f20af64f5e61fa2ab7bb_images.jpg', 'http://assets.myntassets.com/v1/images/style/properties/78d2945defdf29f37f340a4b7cf473d4_images.jpg'], 'colors': ['Blue'], 'description': '<p><strong>Composition</strong><br /> Washed light blue jeggings made of 73% cotton, 24% polyester and 3% spandex, with an elasticated waist, stitch detailing and two pockets on the back<br /> <br /> <span style="font-style: normal; font-weight: bold;">Fit<br /> </span><span style="font-style: normal; font-weight: normal;">Slim<br /> <br /> </span><span style="font-style: normal; font-weight: bold;">Wash care<br /> </span><span style="font-style: normal; font-weight: normal;">Machine or hand wash in cold water at 30 degrees with like colours using a mild detergent<br /> Do not bleach or wring<br /> Flat dry in shade<br /> Warm iron; do not iron on decorations<br /> <br /> If you\'re a denim person, these jeggings from jealous 21 are perfect for you. Designed to contour the hips and fit the waist to perfection, the label gets it right every time - you might not want to take these off once you pull them on! It\'ll go perfectly with your t-shirts and dressy tops, style this tastefully with in-season accessories and heels.<br /> <br /> </span><span style="font-style: normal; font-weight: bold;">Model statistics<br /> </span><span style="font-style: normal; font-weight: normal;">The product is a size 28 on a model of height 5\'8&rdquo; and waist 28"</span></p>'}]})
+# === /search handles llm directly. ===
+@app.route("/search", methods=["POST", "OPTIONS"])
+@cross_origin(
+    origins=["http://localhost:3000"],
+    supports_credentials=True,
+    allow_headers=["Content-Type"],
+    methods=["POST", "OPTIONS"]
+)
+def search_image():
+    print("In search Image", request.files)
+    if 'image' not in request.files:
+        image_to_pass = None
+    else:
+        image_to_pass = request.files['image']
+
+    text_to_pass = request.form.get('text', 'Analyse this image and give similar results.')
+
+    def get_from_masterjson(product: str):
+        url = f"http://127.0.0.1:5000/productsearch/{product}"
+        response = requests.get(url)
+
+        if response.status_code == 200:
+            # print(response.json())
+            return response.json()
+        else:
+            print("Error:", response.status_code, response.text)
+            return None
+
+    # Pydantic models for validation
+    class SearchParams(BaseModel):
+        search_type: str
+        search_terms: List[str]
+        modifiers: Dict[str, str]
+        intent: str
+
+    class FashionSearch:
+        def __init__(self):
+            self.index = pc.Index(INDEX_NAME)
+            self.conversation_history = []
+
+        def _hf_api_call(self, model: str, inputs: str, max_retries=3):
+            headers = {"Authorization": f"Bearer {HF_API_KEY}"}
+            API_URL = f"https://api-inference.huggingface.co/models/{model}"
+
+            payload = {
+                "inputs": inputs,
+                "parameters": {"max_new_tokens": 500, "return_full_text": True}
+            }
+
+            for _ in range(max_retries):
+                response = requests.post(API_URL, headers=headers, json=payload)
+                if response.status_code == 200:
+                    return response.json()
+                elif response.status_code == 503:  # Model loading
+                    print("Model loading, retrying...")
+                    continue
+            return None
+
+        def _parse_query(self, query: str) -> SearchParams:
+            prompt = f"""<s>[INST] Analyze this fashion query and return valid JSON:
+                {{
+                    "search_type": "text|image|multimodal",
+                    "search_terms": ["list", "of", "keywords"],
+                    "modifiers": {{
+                        "color": "optional",
+                        "price_max": "optional number",
+                        "material": "optional"
+                    }},
+                    "intent": "similar_items|alternatives|complements"
+                }}
+
+                Query: {query} [/INST]"""
+
+            response = self._hf_api_call(PARSE_MODEL, prompt)
+            if not response:
+                return SearchParams(
+                    search_type="text",
+                    search_terms=query.split(),
+                    modifiers={},
+                    intent="complements"
+                )
+
+            try:
+                # Handle malformed JSON
+                raw_json = json_repair.repair_json(response[0]['generated_text'])
+                return SearchParams(**json.loads(raw_json))
+            except (ValidationError, json.JSONDecodeError) as e:
+                print(f"JSON parse error: {e}")
+                return SearchParams(
+                    search_type="text",
+                    search_terms=query.split(),
+                    modifiers={},
+                    intent="similar_items"
+                )
+
+        def _get_embedding(self, text: Optional[str], image: Optional[Image.Image]):
+            if text and image:
+                text_emb = self._text_embedding(text)
+                img_emb = self._image_embedding(image)
+                return [0.6 * t + 0.4 * i for t, i in zip(text_emb, img_emb)]
+            elif text:
+                return self._text_embedding(text)
+            elif image:
+                return self._image_embedding(image)
+            return None
+
+        def _text_embedding(self, text: str):
+            inputs = processor(text=[text], return_tensors="pt", padding=True)
+            with torch.no_grad():
+                outputs = base_model.get_text_features(**inputs.to(DEVICE))
+            return outputs.cpu().numpy()[0].tolist()
+
+        def _image_embedding(self, image: Image.Image):
+            inputs = processor(images=[image], return_tensors="pt", padding=True)
+            with torch.no_grad():
+                outputs = base_model.get_image_features(inputs.pixel_values.to(DEVICE))
+            return outputs.cpu().numpy()[0].tolist()
+
+        def search(self, query: Optional[str] = None, pil_image: Optional[Image.Image] = None, top_k: int = 5):
+            image = pil_image
+
+            search_params = self._parse_query(query) if query else None
+
+            filters = {}
+            if search_params:
+                if search_params.modifiers.get("color"):
+                    filters["baseColour"] = {"$eq": search_params.modifiers["color"]}
+                if search_params.modifiers.get("price_max"):
+                    filters["discountedPrice"] = {"$lte": float(search_params.modifiers["price_max"])}
+
+            embedding = self._get_embedding(
+                text=" ".join(search_params.search_terms) if search_params else None,
+                image=image
+            )
+
+            results = self.index.query(
+                vector=embedding,
+                filter=filters,
+                top_k=top_k,
+                include_metadata=True
+            )
+
+            return [self._format_product(match.metadata) for match in results.matches]
+
+        def _format_product(self, stylesdata: dict):
+            productName = stylesdata['productDisplayName']
+            metadata = get_from_masterjson(productName)
+            print("Metadata: ", metadata)
+
+            return ({
+                "id": metadata["id"],
+                "price": metadata["price"],
+                "discountedPrice": metadata["discountedPrice"],
+                "productDisplayName": metadata["productDisplayName"],
+                "landingPageUrl": metadata["landingPageUrl"],
+                "brand": metadata["brand"],
+                "gender": metadata["gender"],
+                "keywords": metadata["keywords"],
+                "morelikethis": metadata["Morelikethis"],
+                "images_Urls": metadata["images_Urls"],
+                "colors": metadata["colors"],
+                "description": metadata["description"]
+            })
+
+        def generate_response(self, products: List[Dict], intent: str) -> str:
+            product_list = "\n".join([
+                f"- {p['productDisplayName']} (${p['discountedPrice']})"
+                for p in products
+            ])
+
+            prompt = f"""<s>[INST] Create a friendly response for {intent}:
+                Products:
+                {product_list}
+
+                Guidelines:
+                - Use natural, conversational language
+                - Highlight key features and prices
+                - Mention color options if available
+                - Keep under 3 sentences [/INST]"""
+
+            response = self._hf_api_call(RESPONSE_MODEL, prompt)
+            return response[0]['generated_text'] if response else "Here are some options:"
+
+    # Usage Example
+    if __name__ == "__main__":
+        searcher = FashionSearch()
+
+        # Image + text search
+        image_file = image_to_pass
+        image = Image.open(image_file).convert("RGB")
+        results = searcher.search(text_to_pass, pil_image=image)
+        print("Printing Searcher Results")
+        ai_text = searcher.generate_response(results, f"{results[0]['keywords'][0]} alternatives")
+        print(ai_text)
+        print(results)
+
+        return jsonify({
+            'ai_text': ai_text or "Here Are Some Results..",
+            'results': results
+        })
+
+    ### commenting the extra search image for now
+    # @app.route("/nothing", methods=["POST"])
+    # def search_image_extra():
+    if 'image' not in request.files:
+        return jsonify({"error": "No image uploaded"}), 400
+
+    image_file = request.files['image']
+    try:
+        image = Image.open(image_file).convert("RGB")
+    except:
+        return jsonify({"error": "Invalid image format"}), 400
+
+    embedding = get_image_embedding(image)
+    image_results = search_pinecone(embedding, top_k=5)
+
+    # Load reference metadata
+    with open('masterfinal.json', 'r') as file:
+        data = json.load(file)
+
+    interested_data = []
+    matched_product_names = [match['metadata']['productDisplayName'] for match in image_results['matches']]
+
+    for product_name in matched_product_names:
+        for item in data:
+            try:
+                if item['data']['productDisplayName'] == product_name:
+                    interested_data.append({
+                        'id': item['data']['id'],
+                        'price': item['data']['price'],
+                        'discountedPrice': item['data']['discountedPrice'],
+                        'productDisplayName': item['data']['productDisplayName'],
+                        'landingPageUrl': "https://myntra.com/" + item['data']['landingPageUrl'],
+                        'brand': item['data']['brandName'],
+                        'gender': item['data']['gender'],
+                        'keywords': list(filter(None, [
+                            item['data'].get('displayCategories', '').lower(),
+                            item['data'].get('usage', '').lower(),
+                            item['data'].get('masterCategory', {}).get('typeName', '').lower(),
+                            item['data'].get('subCategory', {}).get('typeName', '').lower(),
+                            item['data'].get('baseColour', '').lower(),
+                            item['data'].get('gender', '').lower()
+                        ])),
+                        'Morelikethis': [
+                            'https://myntra.com/' + crossLink['value']
+                            for crossLink in item['data'].get('crossLinks', [])
+                        ],
+                        'images_Urls': [
+                            item['data']['styleImages'][key]['imageURL']
+                            for key in item['data']['styleImages'].keys()
+                            if key != 'size_representation'
+                        ],
+                        'colors': [
+                            {
+                                "Color": item['data']['colours']['colors'][colorcode]['global_attr_base_colour'] +
+                                         (f" and {item['data']['colours']['colors'][colorcode]['global_attr_colour1']}"
+                                          if item['data']['colours']['colors'][colorcode][
+                                                 'global_attr_colour1'] != 'NA' else ''),
+                                "BuyLink": 'https://myntra.com/' + item['data']['colours']['colors'][colorcode][
+                                    'dre_landing_page_url'],
+                                "ImgSrc": item['data']['colours']['colors'][colorcode]['search_image']
+                            }
+                            for colorcode in item['data']['colours']['colors'].keys()
+                        ] if 'colours' in item['data'] else [{'Color': item['data']['baseColour'],
+                                                              'BuyLink': "https://myntra.com/" + item['data'][
+                                                                  'landingPageUrl'],
+                                                              'ImgSrc': item['data']['styleImages']['default'][
+                                                                  'imageURL']}],
+                        'description': item['data']['productDescriptors']['description']['value']
+                    })
+                    break
+            except Exception as e:
+                print("Error parsing item:", e)
+                continue
+
+    print("interested data", interested_data)
+
+'''
+Required in the llm model for easy data extraction.
+Instead of referring to the masterjson again and again. just pass the product name 
+for which you need the full json, and this server will extract and give it to you 
+'''
+
+@app.route("/productsearch/<productName>", methods=["GET","OPTIONS"])
+@cross_origin(
+    origins=["http://localhost:3000"],
+    supports_credentials=True,
+    allow_headers=["Content-Type"],
+    methods=["GET", "OPTIONS"]
+)
+def get_json_by_productname(productName):
+    print("Searched product", productName)
+
+    with open('masterfinal.json', 'r') as file:
+        data = json.load(file)
+
+    for item in data:
+        try:
+            if item['data']['productDisplayName'] == productName:
+                print(f"{productName} found")
+                return jsonify({
+                    'id': item['data']['id'],
+                    'price': item['data']['price'],
+                    'discountedPrice': item['data']['discountedPrice'],
+                    'productDisplayName': item['data']['productDisplayName'],
+                    'landingPageUrl': "https://myntra.com/" + item['data']['landingPageUrl'],
+                    'brand': item['data']['brandName'],
+                    'gender': item['data']['gender'],
+                    'keywords': list(filter(None, [
+                        item['data'].get('displayCategories', '').lower(),
+                        item['data'].get('usage', '').lower(),
+                        item['data'].get('masterCategory', {}).get('typeName', '').lower(),
+                        item['data'].get('subCategory', {}).get('typeName', '').lower(),
+                        item['data'].get('baseColour', '').lower(),
+                        item['data'].get('gender', '').lower()
+                    ])),
+                    'Morelikethis': [
+                        'https://myntra.com/' + crossLink['value']
+                        for crossLink in item['data'].get('crossLinks', [])
+                    ],
+                    'images_Urls': [
+                        item['data']['styleImages'][key]['imageURL']
+                        for key in item['data']['styleImages'].keys()
+                        if key != 'size_representation'
+                    ],
+                    'colors': [
+                        {
+                            "Color": item['data']['colours']['colors'][colorcode]['global_attr_base_colour'] +
+                                     (f" and {item['data']['colours']['colors'][colorcode]['global_attr_colour1']}"
+                                      if item['data']['colours']['colors'][colorcode]['global_attr_colour1'] != 'NA' else ''),
+                            "BuyLink": 'https://myntra.com/' + item['data']['colours']['colors'][colorcode]['dre_landing_page_url'],
+                            "ImgSrc": item['data']['colours']['colors'][colorcode]['search_image']
+                        }
+                        for colorcode in item['data']['colours']['colors'].keys()
+                    ] if 'colours' in item['data'] else [{'Color': item['data']['baseColour'],'BuyLink':"https://myntra.com/" + item['data']['landingPageUrl'],'ImgSrc': item['data']['styleImages']['default']['imageURL']}],
+                    'description': item['data']['productDescriptors']['description']['value']
+                })
+        except Exception as e:
+            print("Error parsing item:", e)
+            continue
+
+    return jsonify({"error": "No such ProductName Found"})
+
+
+
+feedback_system = FeedbackLearningSystem()
+
+@app.route("/feedback/downvote", methods=["POST","OPTIONS"])
+@cross_origin(
+    origins=["http://localhost:3000"],
+    supports_credentials=True,
+    allow_headers=["Content-Type"],
+    methods=["POST", "OPTIONS"]
+)
+def downvote_product():
+    """
+    Route to handle product downvotes
+    Expected JSON payload:
+    {
+        "product_id": 12345,
+        "user_query": "original search query",
+        "search_type": "text|image|multimodal",
+        "reason": "not_relevant|wrong_category|wrong_style|wrong_color|poor_quality",
+        "user_session": "optional session id"
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['product_id', 'user_query']
+        missing_fields = [field for field in required_fields if field not in data]
+        
+        if missing_fields:
+            return jsonify({
+                "error": f"Missing required fields: {', '.join(missing_fields)}"
+            }), 400
+        
+        product_id = str(data['product_id'])
+        user_query = data['user_query']
+        reason = data.get('reason', 'not_relevant')
+        search_type = data.get('search_type', 'unknown')
+        user_session = data.get('user_session', 'anonymous')
+        
+        # Add negative feedback to learning system
+        feedback_system.add_feedback(product_id, user_query, is_relevant=False)
+        
+        # Save detailed feedback for analysis
+        feedback_entry = {
+            "timestamp": time.time(),
+            "product_id": product_id,
+            "user_query": user_query,
+            "search_type": search_type,
+            "feedback_type": "downvote",
+            "reason": reason,
+            "user_session": user_session,
+            "action": "model_learning_applied"
+        }
+        
+        # Save to feedback file
+        feedback_file = 'downvote_feedback.json'
+        if os.path.exists(feedback_file):
+            with open(feedback_file, 'r') as f:
+                all_feedback = json.load(f)
+        else:
+            all_feedback = []
+        
+        all_feedback.append(feedback_entry)
+        
+        with open(feedback_file, 'w') as f:
+            json.dump(all_feedback, f, indent=2)
+        
+        print(f"Downvote recorded for product {product_id} with reason: {reason}")
+        
+        return jsonify({
+            "message": "Downvote recorded successfully",
+            "status": "learning_applied",
+            "product_id": product_id,
+            "model_updated": True
+        }), 200
+        
+    except Exception as e:
+        print(f"Error processing downvote: {str(e)}")
+        return jsonify({
+            "error": "Internal server error while processing downvote"
+        }), 500
+
+
+
+
+
+# === Run Server ===
+if __name__ == "__main__":
+    app.run(debug=True)

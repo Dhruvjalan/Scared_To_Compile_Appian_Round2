@@ -1,36 +1,146 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🛍️ ShopSmarter: AI-Powered Personal Shopping Assistant for E-Commerce
 
-## Getting Started
+ShopSmarter is a full-stack web application that integrates **AI-based multimodal search** using image and text inputs. It serves as a personal shopping assistant that helps users discover visually or contextually similar products based on an uploaded image or natural language query.
 
-First, run the development server:
+![AI System Flow](/public/flow.png)
+
+> 🔍 Powered by Computer Vision, NLP, and Vector Similarity Search.
+
+---
+
+## 🚀 Getting Started
+
+### 1. Clone the Repository
+
+```bash
+git clone git@github.com:Dhruvjalan/Scared_To_Compile_Appian_Round2.git
+cd Scared_To_Compile_Appian_Round2
+```
+
+---
+
+### 2. Backend Setup (Flask + AI Models)
+
+Navigate to the backend directory:
+
+```bash
+cd backend
+```
+
+#### Create and Activate a Virtual Environment
+
+On **Windows**:
+
+```bash
+python -m venv venv
+venv\Scripts\activate
+```
+
+On **macOS/Linux**:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+#### Install Dependencies
+
+```bash
+pip install flask flask-cors pillow torch pinecone requests transformers pyreadline3
+```
+
+#### Start the Backend Server
+
+```bash
+python main.py
+```
+
+Visit `http://localhost:5000` to confirm the backend is running.
+
+---
+
+### 3. Frontend Setup (Next.js)
+
+Return to the project root:
+
+```bash
+cd ..
+```
+
+Install frontend dependencies:
+
+```bash
+npm install
+```
+
+Start the Next.js development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit `http://localhost:3000` to view the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🧪 Using the App
 
-## Learn More
+Once both the **backend** and **frontend** are running:
 
-To learn more about Next.js, take a look at the following resources:
+1. **Upload an image** (drag-and-drop or upload `.jpg`, `.png`, or `.webp` files).
+2. **Ask a question** related to the image or use the text input alone.
+3. **Get AI-generated suggestions** for similar or complementary products.
+4. Ask **follow-up questions** to refine recommendations.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🧠 Problem Statement
 
-## Deploy on Vercel
+Leverage the power of **AI in Computer Vision and Recommendation Systems** to build a Personal Shopping Assistant.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+> The challenge:  
+> **Design and develop an AI-powered shopping assistant that personalizes e-commerce experiences by processing visual and textual inputs, and suggesting relevant products from the catalog.**
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+It should understand images of apparel, accessories, home décor, gadgets, etc., and provide recommendations from the store.
+
+---
+
+## 📂 Project Structure
+
+```
+├── backend/                # Flask API with AI models
+│   └── main.py
+├── public/                 # Static files (e.g., flowchart.png)
+│   └── flowchart.png
+├── pages/                  # Next.js pages
+├── components/             # Reusable React components
+├── styles/                 # Tailwind CSS or global styles
+└── README.md
+```
+
+---
+
+## 📸 Flowchart Overview
+
+The AI system flow is illustrated in `public/flowchart.png` and covers:
+
+- User interaction (image + query)
+- Backend processing (image parsing, query embedding)
+- Multimodal AI inference
+- Vector database search
+- AI response generation
+- Frontend rendering
+
+---
+
+## 🤝 Contributing
+
+PRs, suggestions, and issues are welcome! Please fork and submit a pull request.
+
+---
+
+## 📄 License
+
+MIT License. See [LICENSE](./LICENSE) for more information.
+
+---

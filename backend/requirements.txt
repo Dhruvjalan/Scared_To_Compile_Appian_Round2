@@ -1,0 +1,11 @@
+torch
+torchvision
+ftfy
+regex
+tqdm
+Flask
+flask-cors
+Pillow
+numpy
+transformers
+pinecone
