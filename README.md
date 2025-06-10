@@ -2,7 +2,7 @@
 
 ShopSmarter is a full-stack web application that integrates **AI-based multimodal search** using image and text inputs. It serves as a personal shopping assistant that helps users discover visually or contextually similar products based on an uploaded image or natural language query.
 
-![AI System Flow](/public/flow.png)
+![AI System Flow](/public/flow2.png)
 
 > 🔍 Powered by Computer Vision, NLP, and Vector Similarity Search.
 
@@ -46,7 +46,7 @@ source venv/bin/activate
 #### Install Dependencies
 
 ```bash
-pip install flask flask-cors pillow torch pinecone requests transformers pyreadline3
+pip install flask flask-cors pillow torch pinecone requests transformers pyreadline3 whisper sounddevice scikit-learn pickle
 ```
 
 #### Start the Backend Server
