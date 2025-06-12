@@ -75,6 +75,7 @@ export default function ImageUploader() {
   const handleReload = () => {
     setChatHistory([]);
     setHumanMessage("")
+    setAudio("")
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -155,7 +156,7 @@ export default function ImageUploader() {
           formData.append("image", image);
         }
         formData.append("text", humanMessage);
-        const res = await fetch("http://127.0.0.1:5000/search", {
+        const res = await fetch("http://127.0.0.1:5000/dummysearch", {
           method: "POST",
           body: formData,
         });
@@ -321,7 +322,7 @@ export default function ImageUploader() {
               </div>
             )}
             
-            <div className="flex flex-row flex-wrap justify-evenly">
+            <div className="flex flex-row flex-wrap justify-evenly max-w-3xl">
   {chatHistory.map((msg, idx) => {
     if (msg.sender === "ai") {
       return msg.aijson
@@ -335,7 +336,7 @@ export default function ImageUploader() {
               uimodeCard ? (
                 <Card
                           key={`${result.id}-${jsonIdx}`}
-                          className="relative w-80 rounded-xl border border-border bg-card text-card-foreground shadow-md transition-all flex flex-col m-3"
+                          className="relative rounded-xl border border-border bg-card text-card-foreground shadow-md transition-all flex flex-col m-3"
                         >
                           {/* Downvote Button */}
                           <DownvoteButton
@@ -435,7 +436,6 @@ export default function ImageUploader() {
                             </button>
                           </div>
 
-                          {/* Details Overlay */}
                           {openDetails[result.id] && (
                             <div
                               id={`details-${result.id}`}
@@ -520,382 +520,199 @@ export default function ImageUploader() {
                             </div>
                           )}
                         </Card>
-              ):(<Card
-                  key={result.id}
-                  className="relative p-6 mt-8 bg-card text-card-foreground border border-border"
+              )
+              
+
+          : (<Card
+  key={`${result.id}-${jsonIdx}`}
+  className="relative max-w-3xl w-full rounded-xl border border-border bg-card text-card-foreground shadow-md transition-all flex flex-row m-3"
+>
+  <div className="w-1/3 min-w-[200px] relative">
+    <ImageCarousel images={result.images_Urls} className="h-full" />
+    
+    <div className="absolute top-2 left-2 z-10">
+      <DownvoteButton
+        productId={idx}
+        userQuery={humanMessage}
+      />
+    </div>
+  </div>
+
+  <div className="w-2/3 p-4 flex flex-col">
+    <div className="flex-grow">
+      <div className="mb-2">
+        <p className="text-lg font-bold line-clamp-1">
+          {result.productDisplayName}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {result.brand} • {result.gender}
+        </p>
+      </div>
+
+      <div className="text-sm mb-3">
+        ₹
+        <span className="text-lg font-bold mx-1">
+          {result.discountedPrice}
+        </span>
+        {result.discountedPrice < result.price && (
+          <span className="text-xs line-through text-muted-foreground ml-2">
+            ₹{result.price}
+          </span>
+        )}
+      </div>
+
+      {/* Actions Row */}
+      <div className="flex items-center gap-2 mb-3">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => window.open(result.landingPageUrl, "_blank")}
+          aria-label="Buy now"
+          title="Buy now on Myntra.com"
+          className="px-3 py-1"
+        >
+          Buy <ExternalLink className="w-4 h-4 ml-1" />
+        </Button>
+
+        {!kart.includes(result.id) ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleAddToKart(result)}
+            aria-label="Add to cart"
+            title="Add to cart"
+            className="px-3 py-1"
+          >
+            <ShoppingCart />
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleRemoveFromKart(result)}
+            aria-label="Remove from cart"
+            title="Remove from cart"
+            className="px-3 py-1"
+          >
+            <Trash2 />
+          </Button>
+        )}
+
+        <button
+          onClick={() => handleSearchFurther(result.images_Urls[0])}
+          aria-label="Search further"
+          title="More about this product"
+          className="p-2 hover:bg-muted rounded"
+        >
+          <ArrowRightFromLine className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Show/Hide Details Toggle */}
+      <button
+        onClick={() => setOpenModalData(result)}
+        className="text-sm text-primary hover:underline"
+        aria-expanded={!!openDetails[result.id]}
+        aria-controls={`details-${result.id}`}
+      >
+        {openDetails[result.id] ? "Hide details" : "Show details"}
+      </button>
+    </div>
+
+    {/* Keywords (always visible in this layout) */}
+    <div className="mt-auto pt-2">
+      <div className="flex flex-wrap gap-1">
+        {result.keywords.slice(0, 4).map((keyword, index) => (
+          <button
+            key={index}
+            onClick={() => handleKeywordClick(keyword)}
+            className={`px-2 py-1 rounded-full text-xs cursor-pointer ${
+              selectedKeyword.includes(keyword)
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-foreground"
+            }`}
+            aria-pressed={selectedKeyword.includes(keyword)}
+          >
+            {keyword}
+          </button>
+        ))}
+      </div>
+    </div>
+  </div>
+
+  {/* Details Overlay */}
+  {openDetails[result.id] && (
+    <div
+      id={`details-${result.id}`}
+      className="absolute inset-0 z-20 bg-background p-4 rounded-xl overflow-y-auto shadow-lg flex"
+    >
+      <div className="w-1/3 min-w-[200px]">
+        <ImageCarousel images={result.images_Urls} className="h-full" />
+      </div>
+      <div className="w-2/3 p-4 relative">
+        <button
+          className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
+          onClick={() => handleToggleDetails(result.id)}
+          aria-label="Close details"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        <div className="text-sm space-y-4">
+          <section>
+            <h4 className="font-medium mb-1">Description</h4>
+            <p dangerouslySetInnerHTML={{ __html: result.description }} />
+          </section>
+
+          <section>
+            <h4 className="font-medium mb-1">Colors</h4>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {Array.isArray(result.colors) && typeof result.colors[0] === "string"
+                ? result.colors.map((c, i) => (
+                    <span
+                      key={i}
+                      className="px-2 py-1 bg-muted text-foreground rounded-full text-xs"
+                    >
+                      {c}
+                    </span>
+                  ))
+                : result.colors.map((c, i) => (
+                    <Button
+                      key={i}
+                      size="xs"
+                      variant="outline"
+                      onClick={() => window.open(c.BuyLink, "_blank")}
+                    >
+                      {c.Color}
+                    </Button>
+                  ))}
+            </div>
+          </section>
+
+          <section>
+            <h4 className="font-medium mb-1">All Keywords</h4>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {result.keywords.map((keyword, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleKeywordClick(keyword)}
+                  className={`px-2 py-1 rounded-full text-xs cursor-pointer ${
+                    selectedKeyword.includes(keyword)
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-foreground"
+                  }`}
+                  aria-pressed={selectedKeyword.includes(keyword)}
                 >
-                  <X
-                    onClick={() => {
-                      setError("Feedback recorded");
-                      setTimeout(() => setError(null), 5000);
-                    }}
-                    className="absolute top-4 right-4 cursor-pointer"
-                  />
-                  <div className="space-y-4">
-                    <div className="flex flex-row items-start">
-                      <div className="flex-1">
-                        <p className="text-2xl font-bold mb-2">
-                          {result.productDisplayName}
-                        </p>
-                        <p className="text-sm text-muted-foreground mb-4">
-                          {result.brand} • {result.gender}
-                        </p>
-                      </div>
-                      <div className="flex items-start space-x-2 mt-5">
-                        {openImagesDropdown[result.id] ? (
-                          <ChevronUp
-                            onClick={() =>
-                              setOpenImagesDropdown((prev) => ({
-                                ...prev,
-                                [result.id]: !prev[result.id],
-                              }))
-                            }
-                          />
-                        ) : (
-                          <ChevronDown
-                            onClick={() =>
-                              setOpenImagesDropdown((prev) => ({
-                                ...prev,
-                                [result.id]: !prev[result.id],
-                              }))
-                            }
-                          />
-                        )}
-                        <Button
-                          onClick={() =>
-                            window.open(result.landingPageUrl, "_blank")
-                          }
-                          className="px-4"
-                        >
-                          Buy Now <ExternalLink className="ml-2 h-4 w-4" />
-                        </Button>
-                        <Button
-                          onClick={() =>
-                            handleSearchFurther(result.images_Urls[0])
-                          }
-                        >
-                          <ArrowRightFromLine className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    {openImagesDropdown[result.id] && (
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                        {result.images_Urls.length ? (
-                          <ImageCarousel images={result.images_Urls} />
-                        ) : (
-                          <p className="p-4 text-muted-foreground text-sm">
-                            No images available
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    <div>
-                      <h4 className="font-medium">Price</h4>
-                      <p className="flex items-baseline">
-                        ₹
-                        <span className="text-3xl font-bold mx-1">
-                          {result.discountedPrice}
-                        </span>
-                        {result.discountedPrice < result.price && (
-                          <span className="text-sm line-through text-muted-foreground ml-2">
-                            ₹{result.price}
-                          </span>
-                        )}
-                      </p>
-                    </div>
-
-                    {openDetailsDropdown[result.id] ? (
-                      <div>
-                        <ChevronUp
-                          onClick={() =>
-                            setOpenDetailsDropdown((prev) => ({
-                              ...prev,
-                              [result.id]: !prev[result.id],
-                            }))
-                          }
-                        />
-                        <div>
-                          <h4 className="font-medium">Description</h4>
-                          <div
-                            className="text-sm"
-                            dangerouslySetInnerHTML={{
-                              __html: result.description,
-                            }}
-                          />
-                          <h4 className="font-medium">Colors</h4>
-                          <div className="flex flex-wrap gap-2">
-                            {Array.isArray(result.colors) &&
-                              typeof result.colors[0] === "string" &&
-                              result.colors.map((c: string, i: number) => (
-                                <span
-                                  key={i}
-                                  className="px-3 py-1 bg-muted text-foreground rounded-full text-sm"
-                                >
-                                  {c}
-                                </span>
-                              ))}
-                            {Array.isArray(result.colors) &&
-                              typeof result.colors[0] === "object" &&
-                              result.colors.map((c: any, i: number) => (
-                                <Button
-                                  key={i}
-                                  variant="outline"
-                                  onClick={() => window.open(c.BuyLink, "_blank")}
-                                  className="px-2 py-1 text-sm"
-                                >
-                                  {c.Color}
-                                </Button>
-                              ))}
-                          </div>
-                          <h4 className="font-medium">More like this</h4>
-                          <div className="flex flex-wrap gap-2">
-                            {result.morelikethis ? (
-                              result.morelikethis.map(
-                                (link: string, i: number) => (
-                                  <Button
-                                    key={i}
-                                    onClick={() => window.open(link, "_blank")}
-                                    variant="secondary"
-                                    className="px-3 py-1 text-xs"
-                                  >
-                                    Option {i + 1}
-                                  </Button>
-                                )
-                              )
-                            ) : (
-                              <p>Not Found..</p>
-                            )}
-                          </div>
-                          <h4 className="font-medium">Keywords</h4>
-                          <div className="flex flex-wrap gap-2 mt-1">
-                            {result.keywords.map(
-                              (keyword: string, index: number) => (
-                                <span
-                                  key={index}
-                                  onClick={() =>
-                                    setSelectedKeyword((prev) =>
-                                      prev.includes(keyword)
-                                        ? prev.filter((k) => k !== keyword)
-                                        : [...prev, keyword]
-                                    )
-                                  }
-                                  className={`px-3 py-1 rounded-full text-sm cursor-pointer ${
-                                    selectedKeyword.includes(keyword)
-                                      ? "bg-primary text-primary-foreground"
-                                      : "bg-muted text-foreground"
-                                  }`}
-                                >
-                                  {keyword}
-                                </span>
-                              )
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <ChevronDown
-                        onClick={() =>
-                          setOpenDetailsDropdown((prev) => ({
-                            ...prev,
-                            [result.id]: !prev[result.id],
-                          }))
-                        }
-                      />
-                    )}
-                  </div>
-                </Card>
-                  )
-
-//           : (
-//                 <Card
-//                   key={result.id}
-//                   className="relative p-6 mt-8 bg-card text-card-foreground border border-border"
-//                 >
-//                   <X
-//                     onClick={() => {
-//                       setError("Feedback recorded");
-//                       setTimeout(() => setError(null), 5000);
-//                     }}
-//                     className="absolute top-4 right-4 cursor-pointer"
-//                   />
-//                   <div className="space-y-4">
-//                     <div className="flex flex-row items-start">
-//                       <div className="flex-1">
-//                         <p className="text-2xl font-bold mb-2">
-//                           {result.productDisplayName}
-//                         </p>
-//                         <p className="text-sm text-muted-foreground mb-4">
-//                           {result.brand} • {result.gender}
-//                         </p>
-//                       </div>
-//                       <div className="flex items-start space-x-2 mt-5">
-//                         {openImagesDropdown[result.id] ? (
-//                           <ChevronUp
-//                             onClick={() =>
-//                               setOpenImagesDropdown((prev) => ({
-//                                 ...prev,
-//                                 [result.id]: !prev[result.id],
-//                               }))
-//                             }
-//                           />
-//                         ) : (
-//                           <ChevronDown
-//                             onClick={() =>
-//                               setOpenImagesDropdown((prev) => ({
-//                                 ...prev,
-//                                 [result.id]: !prev[result.id],
-//                               }))
-//                             }
-//                           />
-//                         )}
-//                         <Button
-//                           onClick={() =>
-//                             window.open(result.landingPageUrl, "_blank")
-//                           }
-//                           className="px-4"
-//                         >
-//                           Buy Now <ExternalLink className="ml-2 h-4 w-4" />
-//                         </Button>
-//                         <Button
-//                           onClick={() =>
-//                             handleSearchFurther(result.images_Urls[0])
-//                           }
-//                         >
-//                           <ArrowRightFromLine className="h-3 w-3" />
-//                         </Button>
-//                       </div>
-//                     </div>
-//
-//                     {openImagesDropdown[result.id] && (
-//                       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-//                         {result.images_Urls.length ? (
-//                           <ImageCarousel images={result.images_Urls} />
-//                         ) : (
-//                           <p className="p-4 text-muted-foreground text-sm">
-//                             No images available
-//                           </p>
-//                         )}
-//                       </div>
-//                     )}
-//
-//                     <div>
-//                       <h4 className="font-medium">Price</h4>
-//                       <p className="flex items-baseline">
-//                         ₹
-//                         <span className="text-3xl font-bold mx-1">
-//                           {result.discountedPrice}
-//                         </span>
-//                         {result.discountedPrice < result.price && (
-//                           <span className="text-sm line-through text-muted-foreground ml-2">
-//                             ₹{result.price}
-//                           </span>
-//                         )}
-//                       </p>
-//                     </div>
-//
-//                     {openDetailsDropdown[result.id] ? (
-//                       <div>
-//                         <ChevronUp
-//                           onClick={() =>
-//                             setOpenDetailsDropdown((prev) => ({
-//                               ...prev,
-//                               [result.id]: !prev[result.id],
-//                             }))
-//                           }
-//                         />
-//                         <div>
-//                           <h4 className="font-medium">Description</h4>
-//                           <div
-//                             className="text-sm"
-//                             dangerouslySetInnerHTML={{
-//                               __html: result.description,
-//                             }}
-//                           />
-//                           <h4 className="font-medium">Colors</h4>
-//                           <div className="flex flex-wrap gap-2">
-//                             {Array.isArray(result.colors) &&
-//                               typeof result.colors[0] === "string" &&
-//                               result.colors.map((c: string, i: number) => (
-//                                 <span
-//                                   key={i}
-//                                   className="px-3 py-1 bg-muted text-foreground rounded-full text-sm"
-//                                 >
-//                                   {c}
-//                                 </span>
-//                               ))}
-//                             {Array.isArray(result.colors) &&
-//                               typeof result.colors[0] === "object" &&
-//                               result.colors.map((c: any, i: number) => (
-//                                 <Button
-//                                   key={i}
-//                                   variant="outline"
-//                                   onClick={() => window.open(c.BuyLink, "_blank")}
-//                                   className="px-2 py-1 text-sm"
-//                                 >
-//                                   {c.Color}
-//                                 </Button>
-//                               ))}
-//                           </div>
-//                           <h4 className="font-medium">More like this</h4>
-//                           <div className="flex flex-wrap gap-2">
-//                             {result.morelikethis ? (
-//                               result.morelikethis.map(
-//                                 (link: string, i: number) => (
-//                                   <Button
-//                                     key={i}
-//                                     onClick={() => window.open(link, "_blank")}
-//                                     variant="secondary"
-//                                     className="px-3 py-1 text-xs"
-//                                   >
-//                                     Option {i + 1}
-//                                   </Button>
-//                                 )
-//                               )
-//                             ) : (
-//                               <p>Not Found..</p>
-//                             )}
-//                           </div>
-//                           <h4 className="font-medium">Keywords</h4>
-//                           <div className="flex flex-wrap gap-2 mt-1">
-//                             {result.keywords.map(
-//                               (keyword: string, index: number) => (
-//                                 <span
-//                                   key={index}
-//                                   onClick={() =>
-//                                     setSelectedKeyword((prev) =>
-//                                       prev.includes(keyword)
-//                                         ? prev.filter((k) => k !== keyword)
-//                                         : [...prev, keyword]
-//                                     )
-//                                   }
-//                                   className={`px-3 py-1 rounded-full text-sm cursor-pointer ${
-//                                     selectedKeyword.includes(keyword)
-//                                       ? "bg-primary text-primary-foreground"
-//                                       : "bg-muted text-foreground"
-//                                   }`}
-//                                 >
-//                                   {keyword}
-//                                 </span>
-//                               )
-//                             )}
-//                           </div>
-//                         </div>
-//                       </div>
-//                     ) : (
-//                       <ChevronDown
-//                         onClick={() =>
-//                           setOpenDetailsDropdown((prev) => ({
-//                             ...prev,
-//                             [result.id]: !prev[result.id],
-//                           }))
-//                         }
-//                       />
-//                     )}
-//                   </div>
-//                 </Card>
-//               )
+                  {keyword}
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  )}
+</Card>)
             )
         : (
           <div className="w-full flex justify-center mb-3">
@@ -1059,7 +876,7 @@ export default function ImageUploader() {
                 {recording ? <StopCircle /> : <Mic />}
               </button>
             )}
-            displayrecording={0}
+            displayrecording={null}
           />
           
           <button
