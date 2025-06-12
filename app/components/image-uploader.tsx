@@ -198,6 +198,8 @@ export default function ImageUploader() {
   const handleSearchFurther = (imgsrc: string) => {
     setPreview(imgsrc);
     setChatHistory([]);
+    setHumanMessage("")
+    setAudio("")
   };
 
   if (!hasMounted) return null;
