@@ -74,6 +74,7 @@ export default function ImageUploader() {
 
   const handleReload = () => {
     setChatHistory([]);
+    setHumanMessage("")
   };
 
   const handleDragOver = (e: React.DragEvent) => {
