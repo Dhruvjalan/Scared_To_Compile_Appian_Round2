@@ -156,7 +156,7 @@ export default function ImageUploader() {
           formData.append("image", image);
         }
         formData.append("text", humanMessage);
-        const res = await fetch("http://127.0.0.1:5000/dummysearch", {
+        const res = await fetch("http://127.0.0.1:5000/search", {
           method: "POST",
           body: formData,
         });
