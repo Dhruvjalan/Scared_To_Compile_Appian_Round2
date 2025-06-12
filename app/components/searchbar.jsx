@@ -8,7 +8,7 @@ export default function SearchBar({ setSearchQuery, searchQuery, uploadImage, cl
   }, [transcripted_text])
 
   return (
-    <div className="flex items-center space-x-4">
+    <div className="flex items-center space-x-4 w-full">
       <input
         type="text"
         placeholder="Type or use voice..."
