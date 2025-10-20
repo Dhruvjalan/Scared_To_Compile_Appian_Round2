@@ -8,6 +8,10 @@ ShopSmarter is a full-stack web application that integrates **AI-based multimoda
 
 ---
 
+## Demo Link
+https://drive.google.com/file/d/1MhVI6TtNRrLm2TrWgALnt9uZsaCHJjUr/view?usp=sharing
+
+
 ## 🚀 Getting Started
 
 ### 1. Clone the Repository
