@@ -1,16 +1,13 @@
+
 # 🛍️ ShopSmarter: AI-Powered Personal Shopping Assistant for E-Commerce
 
 ShopSmarter is a full-stack web application that integrates **AI-based multimodal search** using image and text inputs. It serves as a personal shopping assistant that helps users discover visually or contextually similar products based on an uploaded image or natural language query.
 
-![AI System Flow](/public/flow2.png)
+![AI System Flow](/public/flow.png)
 
 > 🔍 Powered by Computer Vision, NLP, and Vector Similarity Search.
 
 ---
-
-## Demo Link
-https://drive.google.com/file/d/1MhVI6TtNRrLm2TrWgALnt9uZsaCHJjUr/view?usp=sharing
-
 
 ## 🚀 Getting Started
 
@@ -22,8 +19,16 @@ cd Scared_To_Compile_Appian_Round2
 ```
 
 ---
+### 2. Setup Environment Variables
+Rename `/backend/.env.example` to `/backend/.env`  and update the following variables:
+```env
+HF_API_KEY=your_hugging_face_api_key
+PINECONE_API_KEY=your_pinecone_api_key
+INDEX_NAME=your_pinecone_index_name (default:'fashion-products-clip')
+```
+---
 
-### 2. Backend Setup (Flask + AI Models)
+### 3. Backend Setup (Flask + AI Models)
 
 Navigate to the backend directory:
 
@@ -50,7 +55,7 @@ source venv/bin/activate
 #### Install Dependencies
 
 ```bash
-pip install flask flask-cors pillow torch pinecone requests transformers pyreadline3 whisper sounddevice scikit-learn pickle
+pip install flask flask-cors pillow torch pinecone requests transformers pyreadline3
 ```
 
 #### Start the Backend Server
@@ -63,7 +68,7 @@ Visit `http://localhost:5000` to confirm the backend is running.
 
 ---
 
-### 3. Frontend Setup (Next.js)
+### 4. Frontend Setup (Next.js)
 
 Return to the project root:
 
@@ -148,3 +153,4 @@ PRs, suggestions, and issues are welcome! Please fork and submit a pull request.
 MIT License. See [LICENSE](./LICENSE) for more information.
 
 ---
+>>>>>>> c55f203 (Improved key handling and added env)
